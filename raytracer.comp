@@ -1,0 +1,365 @@
+#version 430 core
+
+#define NUM_SPHERE 4
+#define NUM_MATERIAL 4
+
+#define NX 1024
+#define NY 768
+
+#define NS_X 2
+#define NS_Y 2
+
+#define MAX_DEPTH 10
+
+layout (local_size_x = 1, local_size_y = 1) in;
+
+layout (rgba32f, binding = 0) uniform image2D specular_out;
+layout (rgba32f, binding = 1) uniform image2D diffuse_out;;
+layout (rgba32f, binding = 2) uniform image2D ambient_out;
+
+struct Ray{
+    vec3 from;
+    vec3 dir;
+};
+
+struct Rec4Hit{
+    bool if_hit;
+    float t;
+    vec3 norm;
+    vec3 p;
+    int mat_idx;
+};
+
+struct Rec4Reflect{
+    bool if_reflect;
+    Ray reflected;
+    vec3 attenuation;
+};
+
+struct Sphere{
+    vec3 c;
+    float r;
+    int mat_idx;
+} list_sphere[NUM_SPHERE];
+
+struct Material{
+    vec3 emit;
+    vec3 specular;
+    vec3 diffuse;
+    vec3 ambient;
+} list_material[NUM_MATERIAL];
+
+const vec3 ambient_light = vec3(1.0, 1.0, 1.0);
+
+vec2 random_seed;
+
+void setSeed(vec2 seed){
+    random_seed = seed;
+}
+
+float _random(vec2 co){
+    return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+}
+
+float random01(){
+    //return a random float number in [0, 1)
+
+    random_seed.x = _random(random_seed);
+    random_seed.y = _random(random_seed);
+
+    return random_seed.x;
+} 
+
+vec3 randomUnitV3(){
+    float x = cos(radians(180 * random01()));
+    float y = cos(radians(180 * random01()));
+    float z = sqrt(1 - x * x - y * y);
+
+    return vec3(x, y, z);
+}
+
+vec3 pointAt(Ray ray, float t){
+    return ray.from + t * ray.dir;
+}
+
+Rec4Hit hitSphere(Ray ray, Sphere sp, float t_min, float t_max){
+    float a = dot(ray.dir, ray.dir);
+    float b = 2 * dot(ray.dir, ray.from - sp.c);
+    float c = dot(ray.from - sp.c, ray.from - sp.c) - sp.r * sp.r;
+
+    float delta = b * b - 4 * a * c;
+
+    Rec4Hit rec;
+    rec.mat_idx = sp.mat_idx;
+
+    if (delta >= 0){
+        rec.if_hit = true;
+
+        float tmp = (- b - sqrt(delta)) / (2 * a);
+        
+        if (t_min <= tmp && tmp <= t_max){
+            rec.t = tmp;
+            rec.p = pointAt(ray, tmp);
+
+            rec.norm = normalize(rec.p - sp.c);
+
+            rec.p = sp.c + rec.norm * (sp.r + 0.0001);
+
+            return rec;
+        }
+
+        tmp = (- b + sqrt(delta)) / (2 * a);
+
+        if (t_min <= tmp && tmp <= t_max){
+            rec.t = tmp;
+            rec.p = pointAt(ray, tmp);
+
+            rec.norm = normalize(rec.p - sp.c);
+
+            rec.p = sp.c + rec.norm * sp.r;
+
+            return rec;
+        }
+    }
+
+    rec.if_hit = false;
+    return rec;
+}
+
+Rec4Hit hitSphereList(Ray ray, Sphere list[NUM_SPHERE], float t_min, float t_max){
+    Rec4Hit rec;
+    rec.if_hit = false;
+
+    for (int i = 0; i < NUM_SPHERE; i++){
+        Rec4Hit tmp = hitSphere(ray, list[i], t_min, t_max);
+
+        if (tmp.if_hit){
+            t_max = tmp.t;
+            rec = tmp;
+        }
+    }
+
+    return rec;
+}
+
+Rec4Reflect specular(Rec4Hit rec, Ray ray){
+    Rec4Reflect rec_rf;
+
+    if (length(list_material[rec.mat_idx].emit) > 0){
+        rec_rf.if_reflect = false;
+        return rec_rf;
+    }
+
+    vec3 dir_in = normalize(ray.dir);
+    vec3 new_dir = ray.dir -  2 * dot(dir_in, rec.norm) * rec.norm;
+    rec_rf.reflected = Ray(rec.p, new_dir);
+
+    rec_rf.attenuation = list_material[rec.mat_idx].specular;
+
+    rec_rf.if_reflect = dot(new_dir, rec.norm) > 0;
+
+    return rec_rf;
+}
+
+Rec4Reflect diffuse(Rec4Hit rec, Ray ray){
+    Rec4Reflect rec_rf;
+
+    if (length(list_material[rec.mat_idx].emit) > 0){
+        rec_rf.if_reflect = false;
+        return rec_rf;
+    }
+
+    vec3 new_dir = randomUnitV3() * random01() + rec.norm;
+    rec_rf.reflected = Ray(rec.p, new_dir);
+
+    rec_rf.attenuation = list_material[rec.mat_idx].diffuse;
+
+    // rec_rf.if_reflect = dot(new_dir, rec.norm) > 0;
+    rec_rf.if_reflect = true;
+
+    return rec_rf;
+}
+
+Rec4Reflect ambient(Rec4Hit rec, Ray ray){
+    Rec4Reflect rec_rf;
+
+    if (length(list_material[rec.mat_idx].emit) > 0){
+        rec_rf.if_reflect = false;
+        return rec_rf;
+    }
+
+    rec_rf.attenuation = list_material[rec.mat_idx].ambient;
+    rec_rf.if_reflect = true;
+
+    return rec_rf;
+}
+
+vec3 emit(Rec4Hit rec, Ray ray){
+    // float decay = sp.r / distance(ray.from, rec.p);
+    // decay *= decay;
+
+    float decay = 1;
+
+    float cosine = -dot(rec.norm, normalize(ray.dir));
+
+    return list_material[rec.mat_idx].emit * 1 * decay;
+}
+
+vec3 color(Ray r, int reflect_type){
+    vec3 total_att = vec3(1.0, 1.0, 1.0);
+    vec3 final_color = vec3(0.0, 0.0, 0.0);
+
+    Ray ray = r;
+
+    for (int i = 0; i < MAX_DEPTH; i++){
+        Rec4Hit rec = hitSphereList(ray, list_sphere, 0.0001, 10000000);
+
+        if (!rec.if_hit){
+            break;
+        }
+        else{
+            Rec4Reflect rec_rf;
+
+            switch (reflect_type){
+                case 0:
+                    rec_rf = specular(rec, ray);
+                    break;
+                case 1:
+                    rec_rf = diffuse(rec, ray);
+                    break;
+                case 2:
+                    rec_rf = ambient(rec, ray);
+                    break;
+            }
+
+            if (!rec_rf.if_reflect){
+                final_color = emit(rec, ray);
+                break;
+            }
+
+            if (reflect_type == 2){
+                return ambient_light * rec_rf.attenuation;
+            }
+
+            ray = rec_rf.reflected;
+
+            total_att *= rec_rf.attenuation;
+        }
+    }
+
+    return total_att * final_color;
+}
+
+vec3 reflect4color(Ray ray){
+    vec3 shit;
+
+    Rec4Hit rec = hitSphereList(ray, list_sphere, 0, 10000000);
+
+    if (!rec.if_hit){
+        shit = normalize(ray.dir);
+    }
+    else{
+        Rec4Reflect rec_rf = diffuse(rec, ray);
+
+        if (rec_rf.if_reflect){
+            shit = normalize(rec_rf.reflected.dir);
+        }
+        else{
+            return vec3(0.0);
+        }
+    }
+
+    return (shit + 1) / 2.0;
+}
+
+void saveTex(vec3 texel, ivec2 coord, int type){
+    switch (type){
+        case 0:
+            imageStore(specular_out, coord, vec4(texel, 1.0));
+            break;
+        case 1:
+            imageStore(diffuse_out, coord, vec4(texel, 1.0));
+            break;
+        case 2:
+            // imageStore(ambient_out, coord, vec4(random01(), random01(), random01(), 1.0));
+            imageStore(ambient_out, coord, vec4(texel, 1.0));
+            break;
+    }
+}
+
+void initSpheres(){
+    list_sphere[0] = Sphere(vec3(0.0, 1500.0, 200.0),
+                            1000,
+                            0);
+
+    list_sphere[1] = Sphere(vec3(100.0, 0.0, 0.0),
+                            200,
+                            1);
+
+    list_sphere[2] = Sphere(vec3(-250.0, 100.0, 0.0),
+                        100,
+                        2);
+
+    list_sphere[3] = Sphere(vec3(-120.0, -100.0, 200.0),
+                        70,
+                        3);
+}
+
+void initMaterials(){
+    list_material[0] = Material(vec3(0.0, 1.0, 1.0),    //light
+                                vec3(0.0, 0.0, 0.0),
+                                vec3(0.0, 0.0, 0.0),
+                                vec3(0.0, 0.0, 0.0));
+
+    list_material[1] = Material(vec3(0.0, 0.0, 0.0),
+                                vec3(0.7, 0.7, 0.7),
+                                vec3(0.9, 0.9, 0.9),
+                                vec3(0.9, 0.9, 0.9));
+
+    
+    list_material[2] = Material(vec3(0.0, 0.0, 0.0),
+                                vec3(0.7, 0.3, 0.3),
+                                vec3(0.9, 0.4, 0.4),
+                                vec3(0.9, 0.4, 0.4));
+
+    list_material[3] = Material(vec3(1.0, 0.0, 1.0),    //light
+                                vec3(0.0, 0.0, 0.0),
+                                vec3(0.0, 0.0, 0.0),
+                                vec3(0.0, 0.0, 0.0));
+}
+
+void main(){
+    ivec2 texCoord = ivec2(gl_GlobalInvocationID.xy);
+
+    int reflect_type = texCoord.y / NY;
+    texCoord.y = texCoord.y % NY;
+
+    vec3 shootat = vec3(texCoord, 0.0) - vec3(NX / 2.0, NY / 2.0, 0.0);
+    vec3 cam = vec3(0.0, 0.0, 1000.0);
+
+    setSeed(shootat.xy);
+
+    initSpheres();
+    initMaterials();
+
+// #define color reflect4color
+#define ANTI_ALIAS
+    vec3 texel = vec3(0.0);
+
+#ifdef ANTI_ALIAS
+    for (int i = 0; i < NS_X; i++){
+        for (int j = 0; j < NS_Y; j++){
+            vec3 offset = vec3(1.0 * i / NS_X, 1.0 * j / NS_Y, 0.0) - vec3(0.5);
+
+            texel += color(Ray(cam, normalize(shootat + offset - cam)), reflect_type);
+        }
+    }
+    texel /= NS_X * NS_Y;
+#else
+    Ray ray = Ray(cam, normalize(shootat - cam));
+    texel = color(ray, reflect_type);
+#endif
+    texel = sqrt(texel);
+
+    saveTex(texel, texCoord, reflect_type);
+}
