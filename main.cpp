@@ -37,8 +37,8 @@ int main()
     GLenum err = glewInit();
     std::cout << "ERR:" << err << std::endl;
 
-    Shader renderShader("./src/raytracer.vert", "./src/raytracer.frag"); 
-    Shader computeShader("./src/raytracer.comp");
+    Shader renderShader("./raytracer.vert", "./raytracer.frag"); 
+    Shader computeShader("./raytracer.comp");
     
 	float vertices[] = {
         // positions          // texture coords
