@@ -17,6 +17,16 @@ layout (rgba32f, binding = 0) uniform image2D specular_out;
 layout (rgba32f, binding = 1) uniform image2D diffuse_out;;
 layout (rgba32f, binding = 2) uniform image2D ambient_out;
 
+uniform vec3 cam_origin;
+uniform vec3 cam_lookup;
+uniform vec3 cam_lookat;
+
+const vec3 ambient_light = vec3(0.2, 0.2, 0.2);
+
+// const vec3 cam_origin = vec3(0.0, 0.0, 1.0);
+// const vec3 cam_lookup = vec3(0.0, 1.0, 0.0);
+// const vec3 cam_lookat = vec3(0.0, 0.0, -1.0);
+
 struct Ray{
     vec3 from;
     vec3 dir;
@@ -49,7 +59,12 @@ struct Material{
     vec3 ambient;
 } list_material[NUM_MATERIAL];
 
-const vec3 ambient_light = vec3(1.0, 1.0, 1.0);
+struct Camera{
+    vec3 horizontal;    // FOV horizontal axis(X)
+    vec3 vertical;  // FOV vertical axis(Y)
+    vec3 origin;    // Camera location
+    vec3 center;    // FOV center
+} cam;
 
 vec2 random_seed;
 
@@ -288,44 +303,75 @@ void saveTex(vec3 texel, ivec2 coord, int type){
 }
 
 void initSpheres(){
-    list_sphere[0] = Sphere(vec3(0.0, 1500.0, 200.0),
-                            1000,
+    list_sphere[0] = Sphere(vec3(0.0 / NY, 1500.0 / NY, 200.0 / NY),
+                            1000.0 / NY,
                             0);
 
-    list_sphere[1] = Sphere(vec3(100.0, 0.0, 0.0),
-                            200,
+    list_sphere[1] = Sphere(vec3(100.0 / NY, 0.0 / NY, 0.0 / NY),
+                            200.0 / NY,
                             1);
 
-    list_sphere[2] = Sphere(vec3(-250.0, 100.0, 0.0),
-                        100,
-                        2);
+    list_sphere[2] = Sphere(vec3(-250.0 / NY, 100.0 / NY, 0.0 / NY),
+                            100.0 / NY,
+                            2);
 
-    list_sphere[3] = Sphere(vec3(-120.0, -100.0, 200.0),
-                        70,
-                        3);
+    list_sphere[3] = Sphere(vec3(-120.0 / NY, -100.0 / NY, 200.0 / NY),
+                            70.0 / NY,
+                            3);
 }
 
 void initMaterials(){
+    // vec3 colors[NUM_MATERIAL];
+
+
     list_material[0] = Material(vec3(0.0, 1.0, 1.0),    //light
                                 vec3(0.0, 0.0, 0.0),
                                 vec3(0.0, 0.0, 0.0),
                                 vec3(0.0, 0.0, 0.0));
 
     list_material[1] = Material(vec3(0.0, 0.0, 0.0),
-                                vec3(0.7, 0.7, 0.7),
-                                vec3(0.9, 0.9, 0.9),
-                                vec3(0.9, 0.9, 0.9));
+                                vec3(1.0, 1.0, 1.0) * 0.35,
+                                vec3(1.0, 1.0, 1.0) * 0.6,
+                                vec3(1.0, 1.0, 1.0) * 0.95);
 
     
     list_material[2] = Material(vec3(0.0, 0.0, 0.0),
-                                vec3(0.7, 0.3, 0.3),
-                                vec3(0.9, 0.4, 0.4),
-                                vec3(0.9, 0.4, 0.4));
+                                vec3(1.0, 0.451, 0.0) * 0.35,
+                                vec3(1.0, 0.451, 0.0) * 0.6,
+                                vec3(1.0, 0.451, 0.0) * 0.95);
 
     list_material[3] = Material(vec3(1.0, 0.0, 1.0),    //light
                                 vec3(0.0, 0.0, 0.0),
                                 vec3(0.0, 0.0, 0.0),
                                 vec3(0.0, 0.0, 0.0));
+}
+
+vec2 convertCoord(vec2 tex_coord, int width, int height){
+    vec2 coord = tex_coord;
+    
+    coord -= vec2(width, height) / 2;
+    coord /= width;
+
+    return coord;
+}
+
+void initCamera(vec3 origin, vec3 lookat, vec3 lookup){
+    // Camera cam;
+    cam.horizontal = normalize(cross(lookat, lookup));
+    cam.vertical = normalize(lookup);
+    cam.origin = origin;
+    cam.center = origin + normalize(lookat);
+
+    // return cam;
+}
+
+Ray getRay(Camera cam, vec2 coord){
+    vec3 shootat = cam.center;
+
+    shootat += cam.horizontal * coord.x;
+    shootat += cam.vertical * coord.y;
+
+    return Ray(cam.origin, shootat - cam.origin);
 }
 
 void main(){
@@ -334,13 +380,13 @@ void main(){
     int reflect_type = texCoord.y / NY;
     texCoord.y = texCoord.y % NY;
 
-    vec3 shootat = vec3(texCoord, 0.0) - vec3(NX / 2.0, NY / 2.0, 0.0);
-    vec3 cam = vec3(0.0, 0.0, 1000.0);
-
-    setSeed(shootat.xy);
+    setSeed(convertCoord(texCoord, NX, NY));
 
     initSpheres();
     initMaterials();
+    initCamera(cam_origin,  //origin
+               cam_lookat,   //lookat
+               cam_lookup);   //lookup
 
 // #define color reflect4color
 #define ANTI_ALIAS
@@ -349,17 +395,20 @@ void main(){
 #ifdef ANTI_ALIAS
     for (int i = 0; i < NS_X; i++){
         for (int j = 0; j < NS_Y; j++){
-            vec3 offset = vec3(1.0 * i / NS_X, 1.0 * j / NS_Y, 0.0) - vec3(0.5);
+            vec2 offset = vec2(1.0 * i / NS_X, 1.0 * j / NS_Y) - vec2(0.5);
+            vec2 shootat = convertCoord(texCoord + offset, NX, NY);
 
-            texel += color(Ray(cam, normalize(shootat + offset - cam)), reflect_type);
+            Ray ray = getRay(cam, shootat);
+            texel += color(ray, reflect_type);
         }
     }
     texel /= NS_X * NS_Y;
 #else
-    Ray ray = Ray(cam, normalize(shootat - cam));
+    vec2 shootat = convertCoord(texCoord, NX, NY);
+    Ray ray = getRay(cam, shootat);
     texel = color(ray, reflect_type);
 #endif
-    texel = sqrt(texel);
+    // texel = sqrt(texel);
 
     saveTex(texel, texCoord, reflect_type);
 }

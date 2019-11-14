@@ -8,6 +8,7 @@
 
 #include "shader.h"
 #include "utils.h"
+#include "camera.h"
 
 // settings
 const unsigned int SCR_WIDTH = 1024;
@@ -86,13 +87,18 @@ int main()
     glBindImageTexture(1, diffuse, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
     glBindImageTexture(2, ambient, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 
+    Camera camera(glm::vec3(0.0, 0.0, 1.0),
+                  glm::vec3(0.0, 0.0, -1.0),
+                  glm::vec3(0.0, 1.0, 0.0),
+                  window=window,
+                  0.2, 20);
+
 	std::cout << "Start rendering" << std::endl;
 
 	// render loop
 	// -----------
 
     double tic = glfwGetTime();
-
 	while (!glfwWindowShouldClose(window))
 	{
         double toc = glfwGetTime();
@@ -103,6 +109,7 @@ int main()
 		// input
 		// -----
 		processInput(window);
+        camera.update();
 
 		// render
 		// ------
@@ -111,6 +118,9 @@ int main()
 
         computeShader.use();
 		glDispatchCompute(width, height * 3, 1);
+        glUniform3fv(glGetUniformLocation(computeShader.id, "cam_origin"), 1, glm::value_ptr(camera.origin()));
+        glUniform3fv(glGetUniformLocation(computeShader.id, "cam_lookat"), 1, glm::value_ptr(camera.lookat()));
+        glUniform3fv(glGetUniformLocation(computeShader.id, "cam_lookup"), 1, glm::value_ptr(camera.lookup()));
 
 		// render container
 		renderShader.use();
