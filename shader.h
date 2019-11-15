@@ -64,12 +64,41 @@ public:
         glUseProgram(id);
     }
 
-    void setUniMat4(const char * name, const glm::mat4 &uniform){
-        unsigned int loc = glGetUniformLocation(this->id, name);
-        glUniformMatrix4fv(loc, 1, GL_FALSE, glm::value_ptr(uniform));
+    void setUniBool(const std::string &name, bool value) const
+    {         
+        glUniform1i(glGetUniformLocation(id, name.c_str()), (int)value); 
     }
 
-// private:
+    void setUniInt(const std::string &name, int value) const
+    { 
+        glUniform1i(glGetUniformLocation(id, name.c_str()), value); 
+    }
+
+    void setUniFloat(const std::string &name, float value) const
+    { 
+        glUniform1f(glGetUniformLocation(id, name.c_str()), value); 
+    }
+
+    void setUniVec2(const std::string &name, const glm::vec2 &value) const
+    { 
+        glUniform2fv(glGetUniformLocation(id, name.c_str()), 1, glm::value_ptr(value)); 
+    }
+
+    void setUniVec3(const std::string &name, const glm::vec3 &value) const
+    { 
+        glUniform3fv(glGetUniformLocation(id, name.c_str()), 1, glm::value_ptr(value)); 
+    }
+
+    void setUniVec4(const std::string &name, const glm::vec4 &value) const
+    { 
+        glUniform4fv(glGetUniformLocation(id, name.c_str()), 1, glm::value_ptr(value)); 
+    }
+
+    void setUniMat4(const std::string &name, const glm::mat4 &value){
+        glUniformMatrix4fv(glGetUniformLocation(id, name.c_str()), 1, GL_FALSE, glm::value_ptr(value));
+    }
+
+private:
     int id;
     
     void _createShader(const char *path, const char *shader_type, int shader_id){

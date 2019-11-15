@@ -118,16 +118,16 @@ int main()
 
         computeShader.use();
         glDispatchCompute(width, height * 3, 1);
-        glUniform3fv(glGetUniformLocation(computeShader.id, "cam_origin"), 1, glm::value_ptr(camera.origin()));
-        glUniform3fv(glGetUniformLocation(computeShader.id, "cam_lookat"), 1, glm::value_ptr(camera.lookat()));
-        glUniform3fv(glGetUniformLocation(computeShader.id, "cam_lookup"), 1, glm::value_ptr(camera.lookup()));
+        computeShader.setUniVec3("cam_origin", camera.origin());
+        computeShader.setUniVec3("cam_lookat", camera.lookat());
+        computeShader.setUniVec3("cam_lookup", camera.lookup());
 
         // render container
         renderShader.use();
+        renderShader.setUniInt("texture0", 0);
+        renderShader.setUniInt("texture1", 1);
+        renderShader.setUniInt("texture2", 2);
 
-        glUniform1i(glGetUniformLocation(renderShader.id, "texture0"), 0);
-        glUniform1i(glGetUniformLocation(renderShader.id, "texture1"), 1);
-        glUniform1i(glGetUniformLocation(renderShader.id, "texture2"), 2);
         glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
