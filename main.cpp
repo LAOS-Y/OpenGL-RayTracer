@@ -41,7 +41,7 @@ int main()
     Shader renderShader("./raytracer.vert", "./raytracer.frag"); 
     Shader computeShader("./raytracer.comp");
     
-	float vertices[] = {
+    float vertices[] = {
         // positions          // texture coords
          1.0f,  1.0f, 0.0f,   1.0f, 1.0f, // top right
          1.0f, -1.0f, 0.0f,   1.0f, 0.0f, // bottom right
@@ -77,13 +77,13 @@ int main()
     // -------------------------
 
     
-	int width = SCR_WIDTH, height = SCR_HEIGHT;
+    int width = SCR_WIDTH, height = SCR_HEIGHT;
 
-	unsigned int specular = genTexture(width, height, GL_TEXTURE0);
+    unsigned int specular = genTexture(width, height, GL_TEXTURE0);
     unsigned int diffuse = genTexture(width, height, GL_TEXTURE1);
     unsigned int ambient = genTexture(width, height, GL_TEXTURE2);
 
-	glBindImageTexture(0, specular, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    glBindImageTexture(0, specular, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
     glBindImageTexture(1, diffuse, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
     glBindImageTexture(2, ambient, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 
@@ -93,49 +93,49 @@ int main()
                   window=window,
                   0.2, 20);
 
-	std::cout << "Start rendering" << std::endl;
+    std::cout << "Start rendering" << std::endl;
 
-	// render loop
-	// -----------
+    // render loop
+    // -----------
 
     double tic = glfwGetTime();
-	while (!glfwWindowShouldClose(window))
-	{
+    while (!glfwWindowShouldClose(window))
+    {
         double toc = glfwGetTime();
         std::string title = std::string("FPS: ") + double2str(1 / (toc - tic));
         glfwSetWindowTitle(window, title.c_str());
         tic = toc;
 
-		// input
-		// -----
-		processInput(window);
+        // input
+        // -----
+        processInput(window);
         camera.update();
 
-		// render
-		// ------
-		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
+        // render
+        // ------
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
 
         computeShader.use();
-		glDispatchCompute(width, height * 3, 1);
+        glDispatchCompute(width, height * 3, 1);
         glUniform3fv(glGetUniformLocation(computeShader.id, "cam_origin"), 1, glm::value_ptr(camera.origin()));
         glUniform3fv(glGetUniformLocation(computeShader.id, "cam_lookat"), 1, glm::value_ptr(camera.lookat()));
         glUniform3fv(glGetUniformLocation(computeShader.id, "cam_lookup"), 1, glm::value_ptr(camera.lookup()));
 
-		// render container
-		renderShader.use();
+        // render container
+        renderShader.use();
 
         glUniform1i(glGetUniformLocation(renderShader.id, "texture0"), 0);
         glUniform1i(glGetUniformLocation(renderShader.id, "texture1"), 1);
         glUniform1i(glGetUniformLocation(renderShader.id, "texture2"), 2);
-		glBindVertexArray(VAO);
-		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        glBindVertexArray(VAO);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
-		// glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
-		// -------------------------------------------------------------------------------
-		glfwSwapBuffers(window);
-		glfwPollEvents();
-	}
+        // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
+        // -------------------------------------------------------------------------------
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+    }
 
     // optional: de-allocate all resources once they've outlived their purpose:
     // ------------------------------------------------------------------------

@@ -81,11 +81,10 @@ public:
         {
             file.open(path);
             std::stringstream stream;
-            // 读取文件的缓冲内容到数据流中
+
             stream << file.rdbuf();
-            // 关闭文件处理器
             file.close();
-            // 转换数据流到string
+
             code = stream.str();
         }
         catch(std::ifstream::failure e)
@@ -111,7 +110,6 @@ public:
         }
         glAttachShader(id, shader_id);
     }
-
 };
 
 #endif
