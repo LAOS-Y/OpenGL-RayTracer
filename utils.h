@@ -54,7 +54,7 @@ std::string double2str(double x, int precision=2){
     return ans;
 }
 
-unsigned int genTexture(int width, int height, GLenum tex_unit, const char *ptr=NULL){
+unsigned int genTexture(int width, int height, GLenum tex_unit, const unsigned char *ptr=NULL){
     unsigned int texture;
     glGenTextures(1, &texture);
     glActiveTexture(tex_unit);
@@ -66,7 +66,30 @@ unsigned int genTexture(int width, int height, GLenum tex_unit, const char *ptr=
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, ptr);
+    if (ptr){
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, ptr);
+    }
+    else{
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, ptr);
+    }
+    return texture;
+}
+
+unsigned int genTexturefromPath(const char *path, GLenum tex_unit){
+    int width, height, nrChannels;
+    unsigned int texture;
+
+    stbi_set_flip_vertically_on_load(true);
+    unsigned char *data = stbi_load(path, &width, &height, &nrChannels, 0);
+    if (data)
+    {
+        texture = genTexture(width, height, tex_unit, data);
+    }
+    else
+    {
+        std::cout << "ERROR::TEXTURE::FILE_NOT_SUCCESFULLY_READ (\"" << path << "\")" << std::endl;
+    }
+    stbi_image_free(data);
 
     return texture;
 }
