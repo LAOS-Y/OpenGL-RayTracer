@@ -2,17 +2,18 @@
 #include <string>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
-
+#include <cstdlib>
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
 #include "shader.h"
 #include "utils.h"
 #include "camera.h"
+#include "mover.h"
 
 // settings
-const unsigned int SCR_WIDTH = 1024;
-const unsigned int SCR_HEIGHT = 768;
+const unsigned int SCR_WIDTH = 800;
+const unsigned int SCR_HEIGHT = 600;
 
 float vertices[] = {
     // positions          // texture coords
@@ -51,6 +52,28 @@ void initGLDataObject(){
 
 }
 
+void initSceneTexture(unsigned int &specular, unsigned int &diffuse, unsigned int &ambient){
+    specular = genTexture(SCR_WIDTH, SCR_HEIGHT, GL_TEXTURE0);
+    diffuse = genTexture(SCR_WIDTH, SCR_HEIGHT, GL_TEXTURE1);
+    ambient = genTexture(SCR_WIDTH, SCR_HEIGHT, GL_TEXTURE2);
+
+    glBindImageTexture(0, specular, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    glBindImageTexture(1, diffuse, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    glBindImageTexture(2, ambient, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+}
+
+void initObjectTexture(){
+    genTexturefromPath("textures/sun.jpg", GL_TEXTURE3);
+    genTexturefromPath("textures/mercury.jpg", GL_TEXTURE4);
+    genTexturefromPath("textures/venus.jpg", GL_TEXTURE5);
+    genTexturefromPath("textures/earth.jpg", GL_TEXTURE6);
+    genTexturefromPath("textures/mars.jpg", GL_TEXTURE7);
+    genTexturefromPath("textures/jupiter.jpg", GL_TEXTURE8);
+    genTexturefromPath("textures/saturn.jpg", GL_TEXTURE9);
+    genTexturefromPath("textures/uranus.jpg", GL_TEXTURE10);
+    genTexturefromPath("textures/neptune.jpg", GL_TEXTURE11);
+}
+
 int main()
 {
     // glfw: initialize and configure
@@ -84,23 +107,30 @@ int main()
     // load and create a texture 
     // -------------------------
 
-    unsigned int specular = genTexture(SCR_WIDTH, SCR_HEIGHT, GL_TEXTURE0);
-    unsigned int diffuse = genTexture(SCR_WIDTH, SCR_HEIGHT, GL_TEXTURE1);
-    unsigned int ambient = genTexture(SCR_WIDTH, SCR_HEIGHT, GL_TEXTURE2);
-
-    glBindImageTexture(0, specular, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
-    glBindImageTexture(1, diffuse, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
-    glBindImageTexture(2, ambient, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
-
+    unsigned int specular, diffuse, ambient;
+    initSceneTexture(specular, diffuse, ambient);
     std::cout << "DONE INIT RT SCENE TEXTURE" << std::endl;
 
-    unsigned int texture1 = genTexturefromPath("plant2.jpg", GL_TEXTURE3);
-    unsigned int texture2 = genTexturefromPath("plant3.jpg", GL_TEXTURE4);
+    initObjectTexture();
+    std::cout << "DONE INIT OBJECT TEXTURE" << std::endl;
 
-    std::cout << "DONE INIT planet TEXTURE" << std::endl;
+    Mover mover;
+    mover.addSphere("sphere0", 0, randomIn(0.04, 0.05), 0, 0);
+    mover.addSphere("sphere1", 0.1, randomIn(0.02, 0.04), randomIn(10, 15), randomIn(10, 20));
+    mover.addSphere("sphere2", 0.2, randomIn(0.02, 0.04), randomIn(10, 15), randomIn(10, 20));
+    mover.addSphere("sphere3", 0.3, randomIn(0.02, 0.04), randomIn(10, 15), randomIn(10, 20));
+    // mover.addSphere("sphere4", 0.4, randomIn(0.02, 0.04), randomIn(10, 15), randomIn(10, 20));
+    // mover.addSphere("sphere5", 0.5, randomIn(0.02, 0.04), randomIn(10, 15), randomIn(10, 20));
+    // mover.addSphere("sphere6", 0.6, randomIn(0.02, 0.04), randomIn(10, 15), randomIn(10, 20));
+    // mover.addSphere("sphere7", 0.7, randomIn(0.02, 0.04), randomIn(10, 15), randomIn(10, 20));
+    // mover.addSphere("sphere8", 0.8, randomIn(0.02, 0.04), randomIn(10, 15), randomIn(10, 20));
 
-    Camera camera(glm::vec3(0.0, 0.0, 1.0),
-                  glm::vec3(0.0, 0.0, -1.0),
+    for (int i = 0; i < 5; i++){
+        std::cout << random01() << std::endl;
+    }
+
+    Camera camera(glm::vec3(0.0, 0.0, 0.5),
+                  glm::vec3(0.0, 0.0, -0.5),
                   glm::vec3(0.0, 1.0, 0.0),
                   window=window,
                   0.2, 20);
@@ -108,6 +138,7 @@ int main()
     std::cout << "Start rendering" << std::endl;
 
     double tic = glfwGetTime();
+
     while (!glfwWindowShouldClose(window))
     {
         double toc = glfwGetTime();
@@ -131,9 +162,15 @@ int main()
         computeShader.setUniVec3("cam_lookat", camera.lookat());
         computeShader.setUniVec3("cam_lookup", camera.lookup());
 
+        for (int i = 0; i < mover.getNum(); i++){
+            glm::vec4 vec;
+            std::string name = mover.getSphereVec4(i, vec);
 
-        // glActiveTexture(GL_TEXTURE3);
-        // glBindTexture(GL_TEXTURE_2D, texture1);
+            computeShader.setUniVec4(name, vec);
+        }
+
+        mover.update();
+
         glDispatchCompute(SCR_WIDTH, SCR_HEIGHT * 3, 1);
 
         // render container

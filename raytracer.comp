@@ -3,10 +3,10 @@
 #define M_PI 3.1415926535897932384626433832795
 
 #define NUM_SPHERE 4
-#define NUM_MATERIAL 4
+#define NUM_MATERIAL 9
 
-#define NX 1024
-#define NY 768
+#define NX 800
+#define NY 600
 
 #define NS_X 2
 #define NS_Y 2
@@ -22,13 +22,34 @@ layout (rgba32f, binding = 2) uniform image2D ambient_out;
 // uniform sampler2D tex0;
 layout (binding = 3) uniform sampler2D tex0;
 layout (binding = 4) uniform sampler2D tex1;
+layout (binding = 5) uniform sampler2D tex2;
+layout (binding = 6) uniform sampler2D tex3;
+layout (binding = 7) uniform sampler2D tex4;
+layout (binding = 8) uniform sampler2D tex5;
+layout (binding = 9) uniform sampler2D tex6;
+layout (binding = 10) uniform sampler2D tex7;
+layout (binding = 11) uniform sampler2D tex8;
 
 uniform vec3 cam_origin;
 uniform vec3 cam_lookup;
 uniform vec3 cam_lookat;
 
 
-const vec3 ambient_light = vec3(0.2, 0.2, 0.2);
+// orbit r: vec4.x
+// self r: vec4.y
+// orbit degree: vec4.z
+// rotate degree: vec4.w
+uniform vec4 sphere0;
+uniform vec4 sphere1;
+uniform vec4 sphere2;
+uniform vec4 sphere3;
+uniform vec4 sphere4;
+uniform vec4 sphere5;
+uniform vec4 sphere6;
+uniform vec4 sphere7;
+uniform vec4 sphere8;
+
+const vec3 ambient_light = vec3(1.0, 1.0, 1.0);
 
 struct Ray{
     vec3 from;
@@ -53,6 +74,7 @@ struct Rec4Reflect{
 struct Sphere{
     vec3 c;
     float r;
+    float deg;
     int mat_idx;
 } list_sphere[NUM_SPHERE];
 
@@ -139,7 +161,7 @@ Rec4Hit hitSphere(Ray ray, Sphere sp, float t_min, float t_max){
             rec.norm = normalize(rec.p - sp.c);
 
             rec.p = sp.c + rec.norm * sp.r;
-            rec.tex_xy = getSphereTexXY(rec.p, sp, 30.0);
+            rec.tex_xy = getSphereTexXY(rec.p, sp, sp.deg);
 
             return rec;
         }
@@ -153,7 +175,7 @@ Rec4Hit hitSphere(Ray ray, Sphere sp, float t_min, float t_max){
             rec.norm = normalize(rec.p - sp.c);
 
             rec.p = sp.c + rec.norm * sp.r;
-            rec.tex_xy = getSphereTexXY(rec.p, sp, 30.0);
+            rec.tex_xy = getSphereTexXY(rec.p, sp, sp.deg);
 
             return rec;
         }
@@ -186,6 +208,27 @@ vec3 getSurfaceColor(Material mat, vec2 tex_xy){
             break;
         case 1:
             return texture(tex1, tex_xy).xyz;
+            break;
+        case 2:
+            return texture(tex2, tex_xy).xyz;
+            break;
+        case 3:
+            return texture(tex3, tex_xy).xyz;
+            break;
+        case 4:
+            return texture(tex4, tex_xy).xyz;
+            break;
+        case 5:
+            return texture(tex5, tex_xy).xyz;
+            break;
+        case 6:
+            return texture(tex6, tex_xy).xyz;
+            break;
+        case 7:
+            return texture(tex7, tex_xy).xyz;
+            break;
+        case 8:
+            return texture(tex8, tex_xy).xyz;
             break;
     }
 
@@ -298,28 +341,6 @@ vec3 color(Ray r, int reflect_type){
     return total_att * final_color;
 }
 
-vec3 reflect4color(Ray ray){
-    vec3 shit;
-
-    Rec4Hit rec = hitSphereList(ray, list_sphere, 0, 10000000);
-
-    if (!rec.if_hit){
-        shit = normalize(ray.dir);
-    }
-    else{
-        Rec4Reflect rec_rf = diffuse(rec, ray);
-
-        if (rec_rf.if_reflect){
-            shit = normalize(rec_rf.reflected.dir);
-        }
-        else{
-            return vec3(0.0);
-        }
-    }
-
-    return (shit + 1) / 2.0;
-}
-
 void saveTex(vec3 texel, ivec2 coord, int type){
     switch (type){
         case 0:
@@ -335,56 +356,68 @@ void saveTex(vec3 texel, ivec2 coord, int type){
     }
 }
 
+vec2 rotateVec2(vec2 v, float rad){
+    float l = length(v);
+    float r = acos(normalize(v).x);
+    return vec2(cos(r + rad), sin(r + rad) * l);
+}
+
+Sphere genSphere(vec4 v){
+    Sphere sp;
+    sp.c = vec3(cos(radians(v.z)), 0.0, - sin(radians(v.z))) * v.x;
+    sp.r = v.y;
+    sp.deg = v.w;
+
+    return sp;
+}
+
 void initSpheres(){
-    list_sphere[0] = Sphere(vec3(0.0 / NY, 1500.0 / NY, 200.0 / NY),
-                            1000.0 / NY,
-                            0);
+    list_sphere[0] = genSphere(sphere0);
+    list_sphere[1] = genSphere(sphere1);
+    list_sphere[2] = genSphere(sphere2);
+    list_sphere[3] = genSphere(sphere3);
+    // list_sphere[4] = genSphere(sphere4);
+    // list_sphere[5] = genSphere(sphere5);
+    // list_sphere[6] = genSphere(sphere6);
+    // list_sphere[7] = genSphere(sphere7);
+    // list_sphere[8] = genSphere(sphere8);
 
-    list_sphere[1] = Sphere(vec3(100.0 / NY, 0.0 / NY, 0.0 / NY),
-                            200.0 / NY,
-                            1);
+    for (int i = 0; i < NUM_SPHERE; i++){
+        list_sphere[i].mat_idx = i;
+    }
+}
 
-    list_sphere[2] = Sphere(vec3(-250.0 / NY, 100.0 / NY, 0.0 / NY),
-                            100.0 / NY,
-                            2);
 
-    list_sphere[3] = Sphere(vec3(-120.0 / NY, -100.0 / NY, 200.0 / NY),
-                            70.0 / NY,
-                            3);
+//emit: v.x
+//specular: v.y
+//diffuse: v.z
+//ambient: v.y + v.z;
+Material genMaterial(vec3 v){
+    Material mat;
+    mat.emit = v.x;
+
+    mat.specular = v.y;
+    mat.diffuse = v.z;
+    mat.ambient = v.y + v.z;
+
+    return mat;
 }
 
 void initMaterials(){
-    // vec3 colors[NUM_MATERIAL];
 
+    list_material[0] = genMaterial(vec3(1.0, 0.0, 0.0));
+    list_material[1] = genMaterial(vec3(0.0, 0.6, 0.35));
+    list_material[2] = genMaterial(vec3(0.0, 0.6, 0.35));
+    list_material[3] = genMaterial(vec3(0.0, 0.6, 0.35));
+    list_material[4] = genMaterial(vec3(0.0, 0.35, 0.6));
+    list_material[5] = genMaterial(vec3(0.0, 0.35, 0.6));
+    list_material[6] = genMaterial(vec3(0.0, 0.35, 0.6));
+    list_material[7] = genMaterial(vec3(0.0, 0.35, 0.6));
+    list_material[8] = genMaterial(vec3(0.0, 0.35, 0.6));
 
-    list_material[0] = Material(vec3(0.0, 1.0, 1.0),    //light
-                                0,
-                                1.0,
-                                0.0,
-                                0.0,
-                                0.0);
-
-    list_material[1] = Material(vec3(1.0, 1.0, 1.0),
-                                0,
-                                0.0,
-                                0.35,
-                                0.6,
-                                0.95);
-
-    
-    list_material[2] = Material(vec3(1.0, 0.451, 0.0),
-                                1,
-                                0.0,
-                                0.35,
-                                0.6,
-                                0.95);
-
-    list_material[3] = Material(vec3(1.0, 0.0, 1.0),
-                                0,
-                                1.0,
-                                0.0,
-                                0.0,
-                                0.0);
+    for (int i = 0; i < NUM_MATERIAL; i++){
+        list_material[i].tex_idx = i;
+    }
 }
 
 vec2 convertCoord(vec2 tex_coord, int width, int height){

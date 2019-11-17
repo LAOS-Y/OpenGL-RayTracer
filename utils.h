@@ -1,6 +1,7 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+#include <cstdlib>
 #include <string>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -92,6 +93,16 @@ unsigned int genTexturefromPath(const char *path, GLenum tex_unit){
     stbi_image_free(data);
 
     return texture;
+}
+
+// random double in [0, 1)
+double random01(){
+    return rand() / (RAND_MAX + 1.0);
+}
+
+// random double in [low, high)
+double randomIn(double low, double high){
+    return random01() * (high - low) + low;
 }
 
 #endif
