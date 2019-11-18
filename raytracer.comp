@@ -13,7 +13,7 @@
 
 #define MAX_DEPTH 10
 
-layout (local_size_x = 1, local_size_y = 1) in;
+layout (local_size_x = 1, local_size_y = 3) in;
 
 layout (rgba32f, binding = 0) uniform image2D specular_out;
 layout (rgba32f, binding = 1) uniform image2D diffuse_out;
@@ -446,10 +446,12 @@ Ray getRay(Camera cam, vec2 coord){
 }
 
 void main(){
-    ivec2 texCoord = ivec2(gl_GlobalInvocationID.xy);
+    int reflect_type = int(gl_LocalInvocationID.y);
+    ivec2 texCoord = ivec2(gl_WorkGroupID.xy);
 
-    int reflect_type = texCoord.y / NY;
-    texCoord.y = texCoord.y % NY;
+    // ivec2 texCoord = ivec2(gl_GlobalInvocationID.xy);
+    // int reflect_type = texCoord.y / NY;
+    // texCoord.y = texCoord.y % NY;
 
     setSeed(convertCoord(texCoord, NX, NY));
 
@@ -459,7 +461,6 @@ void main(){
                cam_lookat,   //lookat
                cam_lookup);   //lookup
 
-// #define color reflect4color
 #define ANTI_ALIAS
     vec3 texel = vec3(0.0);
 

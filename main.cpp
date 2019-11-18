@@ -171,7 +171,7 @@ int main()
 
         mover.update();
 
-        glDispatchCompute(SCR_WIDTH, SCR_HEIGHT * 3, 1);
+        glDispatchCompute(SCR_WIDTH, SCR_HEIGHT, 1);
 
         // render container
         renderShader.use();
