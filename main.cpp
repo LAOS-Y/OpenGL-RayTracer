@@ -14,6 +14,7 @@
 // settings
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
+const int N_SAMPLES = 2;
 
 float vertices[] = {
     // positions          // texture coords
@@ -52,26 +53,34 @@ void initGLDataObject(){
 
 }
 
-void initSceneTexture(unsigned int &specular, unsigned int &diffuse, unsigned int &ambient){
-    specular = genTexture(SCR_WIDTH, SCR_HEIGHT, GL_TEXTURE0);
-    diffuse = genTexture(SCR_WIDTH, SCR_HEIGHT, GL_TEXTURE1);
-    ambient = genTexture(SCR_WIDTH, SCR_HEIGHT, GL_TEXTURE2);
+void initSceneTexture(){
+    unsigned int specular, diffuse, ambient;
 
-    glBindImageTexture(0, specular, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
-    glBindImageTexture(1, diffuse, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
-    glBindImageTexture(2, ambient, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    unsigned int tex_units[3][2] = {GL_TEXTURE0, GL_TEXTURE1,
+                                    GL_TEXTURE2, GL_TEXTURE3,
+                                    GL_TEXTURE4, GL_TEXTURE5};
+
+    for (int i = 0; i < N_SAMPLES; i++){
+        specular = genTexture(SCR_WIDTH, SCR_HEIGHT, tex_units[0][i]);
+        diffuse = genTexture(SCR_WIDTH, SCR_HEIGHT, tex_units[1][i]);
+        ambient = genTexture(SCR_WIDTH, SCR_HEIGHT, tex_units[2][i]);
+
+        glBindImageTexture(i, specular, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+        glBindImageTexture(i + N_SAMPLES, diffuse, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+        glBindImageTexture(i + N_SAMPLES * 2, ambient, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+    }
 }
 
 void initObjectTexture(){
-    genTexturefromPath("textures/sun.jpg", GL_TEXTURE3);
-    genTexturefromPath("textures/mercury.jpg", GL_TEXTURE4);
-    genTexturefromPath("textures/venus.jpg", GL_TEXTURE5);
-    genTexturefromPath("textures/earth.jpg", GL_TEXTURE6);
-    genTexturefromPath("textures/mars.jpg", GL_TEXTURE7);
-    genTexturefromPath("textures/jupiter.jpg", GL_TEXTURE8);
-    genTexturefromPath("textures/saturn.jpg", GL_TEXTURE9);
-    genTexturefromPath("textures/uranus.jpg", GL_TEXTURE10);
-    genTexturefromPath("textures/neptune.jpg", GL_TEXTURE11);
+    genTexturefromPath("textures/sun.jpg", GL_TEXTURE6);
+    genTexturefromPath("textures/mercury.jpg", GL_TEXTURE7);
+    genTexturefromPath("textures/venus.jpg", GL_TEXTURE8);
+    genTexturefromPath("textures/earth.jpg", GL_TEXTURE9);
+    genTexturefromPath("textures/mars.jpg", GL_TEXTURE10);
+    genTexturefromPath("textures/jupiter.jpg", GL_TEXTURE11);
+    genTexturefromPath("textures/saturn.jpg", GL_TEXTURE12);
+    genTexturefromPath("textures/uranus.jpg", GL_TEXTURE13);
+    genTexturefromPath("textures/neptune.jpg", GL_TEXTURE14);
 }
 
 int main()
@@ -107,8 +116,8 @@ int main()
     // load and create a texture 
     // -------------------------
 
-    unsigned int specular, diffuse, ambient;
-    initSceneTexture(specular, diffuse, ambient);
+    // unsigned int specular, diffuse, ambient;
+    initSceneTexture();
     std::cout << "DONE INIT RT SCENE TEXTURE" << std::endl;
 
     initObjectTexture();
@@ -175,9 +184,13 @@ int main()
 
         // render container
         renderShader.use();
-        renderShader.setUniInt("tex_specular", 0);
-        renderShader.setUniInt("tex_diffuse", 1);
-        renderShader.setUniInt("tex_ambient", 2);
+        renderShader.setUniInt("tex_specular[0]", 0);
+        renderShader.setUniInt("tex_diffuse[0]", 2);
+        renderShader.setUniInt("tex_ambient[0]", 4);
+
+        renderShader.setUniInt("tex_specular[1]", 1);
+        renderShader.setUniInt("tex_diffuse[1]", 3);
+        renderShader.setUniInt("tex_ambient[1]", 5);
 
 
         glBindVertexArray(VAO);

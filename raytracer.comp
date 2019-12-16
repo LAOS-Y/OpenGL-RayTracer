@@ -9,26 +9,38 @@
 #define NY 600
 
 #define NS_X 2
-#define NS_Y 2
+#define NS_Y 1
 
 #define MAX_DEPTH 10
 
-layout (local_size_x = 1, local_size_y = 3) in;
+layout (local_size_x = 2, local_size_y = 3) in;
 
-layout (rgba32f, binding = 0) uniform image2D specular_out;
-layout (rgba32f, binding = 1) uniform image2D diffuse_out;
-layout (rgba32f, binding = 2) uniform image2D ambient_out;
+// layout (rgba32f, binding = 0) uniform image2D specular0;
+// layout (rgba32f, binding = 2) uniform image2D diffuse0;
+// layout (rgba32f, binding = 4) uniform image2D ambient0;
+
+// layout (rgba32f, binding = 1) uniform image2D specular1;
+// layout (rgba32f, binding = 3) uniform image2D diffuse1;
+// layout (rgba32f, binding = 5) uniform image2D ambient1;
+
+layout (rgba32f, binding = 0) uniform image2D specular0;
+layout (rgba32f, binding = 2) uniform image2D diffuse0;
+layout (rgba32f, binding = 4) uniform image2D ambient0;
+
+layout (rgba32f, binding = 1) uniform image2D specular1;
+layout (rgba32f, binding = 3) uniform image2D diffuse1;
+layout (rgba32f, binding = 5) uniform image2D ambient1;
 
 // uniform sampler2D tex0;
-layout (binding = 3) uniform sampler2D tex0;
-layout (binding = 4) uniform sampler2D tex1;
-layout (binding = 5) uniform sampler2D tex2;
-layout (binding = 6) uniform sampler2D tex3;
-layout (binding = 7) uniform sampler2D tex4;
-layout (binding = 8) uniform sampler2D tex5;
-layout (binding = 9) uniform sampler2D tex6;
-layout (binding = 10) uniform sampler2D tex7;
-layout (binding = 11) uniform sampler2D tex8;
+layout (binding = 6) uniform sampler2D tex0;
+layout (binding = 7) uniform sampler2D tex1;
+layout (binding = 8) uniform sampler2D tex2;
+layout (binding = 9) uniform sampler2D tex3;
+layout (binding = 10) uniform sampler2D tex4;
+layout (binding = 11) uniform sampler2D tex5;
+layout (binding = 12) uniform sampler2D tex6;
+layout (binding = 13) uniform sampler2D tex7;
+layout (binding = 14) uniform sampler2D tex8;
 
 uniform vec3 cam_origin;
 uniform vec3 cam_lookup;
@@ -344,14 +356,24 @@ vec3 color(Ray r, int reflect_type){
 void saveTex(vec3 texel, ivec2 coord, int type){
     switch (type){
         case 0:
-            imageStore(specular_out, coord, vec4(texel, 1.0));
+            imageStore(specular0, coord, vec4(texel, 1.0));
             break;
         case 1:
-            imageStore(diffuse_out, coord, vec4(texel, 1.0));
+            imageStore(specular1, coord, vec4(texel, 1.0));
             break;
+
         case 2:
-            // imageStore(ambient_out, coord, vec4(random01(), random01(), random01(), 1.0));
-            imageStore(ambient_out, coord, vec4(texel, 1.0));
+            imageStore(diffuse0, coord, vec4(texel, 1.0));
+            break;
+        case 3:
+            imageStore(diffuse1, coord, vec4(texel, 1.0));
+            break;
+
+        case 4:
+            imageStore(ambient0, coord, vec4(texel, 1.0));
+            break;
+        case 5:
+            imageStore(ambient1, coord, vec4(texel, 1.0));
             break;
     }
 }
@@ -376,11 +398,6 @@ void initSpheres(){
     list_sphere[1] = genSphere(sphere1);
     list_sphere[2] = genSphere(sphere2);
     list_sphere[3] = genSphere(sphere3);
-    // list_sphere[4] = genSphere(sphere4);
-    // list_sphere[5] = genSphere(sphere5);
-    // list_sphere[6] = genSphere(sphere6);
-    // list_sphere[7] = genSphere(sphere7);
-    // list_sphere[8] = genSphere(sphere8);
 
     for (int i = 0; i < NUM_SPHERE; i++){
         list_sphere[i].mat_idx = i;
@@ -445,13 +462,29 @@ Ray getRay(Camera cam, vec2 coord){
     return Ray(cam.origin, shootat - cam.origin);
 }
 
+vec3 fuck(Ray ray, int reflect_type){
+    switch(reflect_type){
+        case 0:
+            return vec3(1.0, 0.0, 0.0);
+        case 1:
+            return vec3(0.0, 1.0, 0.0);
+        case 2:
+            return vec3(0.0, 0.0, 1.0);
+        case 3:
+            return vec3(1.0, 1.0, 0.0);
+        case 4:
+            return vec3(0.0, 1.0, 1.0);
+        case 5:
+            return vec3(1.0, 0.0, 1.0);
+        
+    }
+    return vec3(0.5, 0.5, 0.5);
+}
+
 void main(){
     int reflect_type = int(gl_LocalInvocationID.y);
+    int map_id = 2 * int(gl_LocalInvocationID.y) + int(gl_LocalInvocationID.x);
     ivec2 texCoord = ivec2(gl_WorkGroupID.xy);
-
-    // ivec2 texCoord = ivec2(gl_GlobalInvocationID.xy);
-    // int reflect_type = texCoord.y / NY;
-    // texCoord.y = texCoord.y % NY;
 
     setSeed(convertCoord(texCoord, NX, NY));
 
@@ -461,26 +494,16 @@ void main(){
                cam_lookat,   //lookat
                cam_lookup);   //lookup
 
-#define ANTI_ALIAS
-    vec3 texel = vec3(0.0);
+    int i = int(gl_LocalInvocationID.x) / 2;
+    int j = int(gl_LocalInvocationID.x) % 2;
+    
+    vec2 offset = vec2(1.0 * i / NS_X, 1.0 * j / NS_Y) - vec2(0.5);
+    vec2 shootat = convertCoord(texCoord + offset, NX, NY);
 
-#ifdef ANTI_ALIAS
-    for (int i = 0; i < NS_X; i++){
-        for (int j = 0; j < NS_Y; j++){
-            vec2 offset = vec2(1.0 * i / NS_X, 1.0 * j / NS_Y) - vec2(0.5);
-            vec2 shootat = convertCoord(texCoord + offset, NX, NY);
-
-            Ray ray = getRay(cam, shootat);
-            texel += color(ray, reflect_type);
-        }
-    }
-    texel /= NS_X * NS_Y;
-#else
-    vec2 shootat = convertCoord(texCoord, NX, NY);
     Ray ray = getRay(cam, shootat);
-    texel = color(ray, reflect_type);
-#endif
+    vec3 texel = color(ray, reflect_type);
+    // vec3 texel = fuck(ray, map_id);
     // texel = sqrt(texel);
 
-    saveTex(texel, texCoord, reflect_type);
+    saveTex(texel, texCoord, map_id);
 }

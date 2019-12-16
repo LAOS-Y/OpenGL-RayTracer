@@ -123,7 +123,7 @@ private:
 
         const char* code_char = code.c_str();
 
-        std::cout << code_char << std::endl;
+        // std::cout << code_char << std::endl;
 
         glShaderSource(shader_id, 1, &code_char, NULL);
         glCompileShader(shader_id);
